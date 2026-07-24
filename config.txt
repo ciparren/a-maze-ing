@@ -1,0 +1,12 @@
+# A-Maze-ing default configuration file
+# One KEY=VALUE pair per line. Lines starting with # are ignored.
+
+WIDTH=20
+HEIGHT=15
+ENTRY=0,0
+EXIT=19,14
+OUTPUT_FILE=maze.txt
+PERFECT=True
+
+# Optional keys
+SEED=42
