@@ -1,0 +1,2 @@
+[flake8]
+exclude = .venv,vendor,build,dist,*.egg-info,.git

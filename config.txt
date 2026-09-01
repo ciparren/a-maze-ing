@@ -10,3 +10,4 @@ PERFECT=True
 
 # Optional keys
 SEED=42
+DISPLAY=ascii

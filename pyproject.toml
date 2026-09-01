@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mazegen"
+version = "1.0.0"
+description = "A small, reusable rectangular maze generator (grid carving, obstacles, loop-braiding, BFS solving)."
+readme = "mazegen/README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE.md"]
+authors = [
+    { name = "ciparren" },
+    { name = "dondrama" },
+]
+keywords = ["maze", "generator", "procedural-generation"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Repository = "https://github.com/ciparren/a-maze-ing"
+
+[tool.setuptools.packages.find]
+include = ["mazegen*"]
+
+[tool.mypy]
+# maze_analyzer.py is the subject's own grading tool, kept for local
+# self-checking -- not our code, so it's excluded from the lint gate.
+# .venv/vendor/build/dist are third-party or generated, not our sources.
+exclude = [
+    "^maze_analyzer\\.py$",
+    "^\\.venv/",
+    "^vendor/",
+    "^build/",
+    "^dist/",
+]
+
+[[tool.mypy.overrides]]
+# The optional MLX binding ships no type stubs; only imported behind a
+# deferred, optional import in app/display_mlx.py.
+module = "mlx"
+ignore_missing_imports = true
