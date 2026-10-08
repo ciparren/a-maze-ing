@@ -79,6 +79,14 @@ def parse_config(path: str) -> Config:
 
 
 def _read_pairs(path: str) -> Dict[str, str]:
+    """Read *path* into a ``{KEY: value}`` dict (keys upper-cased).
+
+    Blank lines and lines starting with ``#`` are skipped.
+
+    Raises:
+        MazeError: if a line has no ``=`` or a key is empty or repeated.
+        OSError: if the file cannot be opened (left to the caller).
+    """
     pairs: Dict[str, str] = {}
     with open(path, encoding="utf-8") as stream:
         for number, raw_line in enumerate(stream, start=1):
@@ -91,11 +99,21 @@ def _read_pairs(path: str) -> Dict[str, str]:
                     f"{raw_line.strip()!r}"
                 )
             key, _, value = line.partition("=")
-            pairs[key.strip().upper()] = value.strip()
+            key = key.strip().upper()
+            if not key:
+                raise MazeError(f"line {number}: missing key before '='")
+            if key in pairs:
+                raise MazeError(f"line {number}: duplicate key {key}")
+            pairs[key] = value.strip()
     return pairs
 
 
 def _parse_int(raw: Dict[str, str], key: str) -> int:
+    """Return ``raw[key]`` as an int.
+
+    Raises:
+        MazeError: if the value is not a valid integer.
+    """
     try:
         return int(raw[key])
     except ValueError as error:
@@ -105,12 +123,18 @@ def _parse_int(raw: Dict[str, str], key: str) -> int:
 
 
 def _parse_optional_int(raw: Dict[str, str], key: str) -> Optional[int]:
+    """Return ``raw[key]`` as an int, or ``None`` if absent or empty."""
     if key not in raw or not raw[key].strip():
         return None
     return _parse_int(raw, key)
 
 
 def _parse_coord(raw: Dict[str, str], key: str) -> Coord:
+    """Return ``raw[key]`` (formatted ``x,y``) as an ``(x, y)`` tuple.
+
+    Raises:
+        MazeError: if the value is not two comma-separated integers.
+    """
     text = raw[key]
     parts = text.split(",")
     if len(parts) != 2:
@@ -125,6 +149,11 @@ def _parse_coord(raw: Dict[str, str], key: str) -> Coord:
 
 
 def _parse_bool(raw: Dict[str, str], key: str) -> bool:
+    """Return ``raw[key]`` as a bool (True/False, 1/0, yes/no).
+
+    Raises:
+        MazeError: if the value is none of the accepted spellings.
+    """
     value = raw[key].strip().lower()
     if value in _TRUE_VALUES:
         return True

@@ -19,12 +19,14 @@ PERFECT=True
 
 
 def _write(tmp_path: Path, text: str) -> str:
+    """Write *text* to a config file in *tmp_path* and return its path."""
     path = tmp_path / "config.txt"
     path.write_text(text, encoding="utf-8")
     return str(path)
 
 
 def test_valid_config_parses(tmp_path: Path) -> None:
+    """Check that valid config parses."""
     config = parse_config(_write(tmp_path, _VALID))
     assert config.width == 20
     assert config.height == 15
@@ -37,12 +39,14 @@ def test_valid_config_parses(tmp_path: Path) -> None:
 
 
 def test_comments_and_blank_lines_are_ignored(tmp_path: Path) -> None:
+    """Check that comments and blank lines are ignored."""
     text = "# a comment\n\n" + _VALID + "\n# trailing comment\n"
     config = parse_config(_write(tmp_path, text))
     assert config.width == 20
 
 
 def test_optional_seed_and_display(tmp_path: Path) -> None:
+    """Check that the optional SEED and DISPLAY keys are parsed."""
     text = _VALID + "SEED=42\nDISPLAY=mlx\n"
     config = parse_config(_write(tmp_path, text))
     assert config.seed == 42
@@ -55,6 +59,7 @@ def test_optional_seed_and_display(tmp_path: Path) -> None:
 def test_missing_mandatory_key_raises(
     tmp_path: Path, missing_key: str,
 ) -> None:
+    """Check that missing mandatory key raises."""
     lines = [
         line for line in _VALID.splitlines()
         if not line.startswith(f"{missing_key}=")
@@ -64,36 +69,56 @@ def test_missing_mandatory_key_raises(
 
 
 def test_bad_integer_raises(tmp_path: Path) -> None:
+    """Check that bad integer raises."""
     text = _VALID.replace("WIDTH=20", "WIDTH=abc")
     with pytest.raises(MazeError):
         parse_config(_write(tmp_path, text))
 
 
 def test_bad_coordinate_format_raises(tmp_path: Path) -> None:
+    """Check that bad coordinate format raises."""
     text = _VALID.replace("ENTRY=0,0", "ENTRY=0")
     with pytest.raises(MazeError):
         parse_config(_write(tmp_path, text))
 
 
 def test_entry_equals_exit_raises(tmp_path: Path) -> None:
+    """Check that entry equals exit raises."""
     text = _VALID.replace("EXIT=19,14", "EXIT=0,0")
     with pytest.raises(MazeError):
         parse_config(_write(tmp_path, text))
 
 
 def test_out_of_bounds_entry_raises(tmp_path: Path) -> None:
+    """Check that out of bounds entry raises."""
     text = _VALID.replace("ENTRY=0,0", "ENTRY=99,99")
     with pytest.raises(MazeError):
         parse_config(_write(tmp_path, text))
 
 
 def test_bad_display_value_raises(tmp_path: Path) -> None:
+    """Check that bad display value raises."""
     text = _VALID + "DISPLAY=curses\n"
     with pytest.raises(MazeError):
         parse_config(_write(tmp_path, text))
 
 
 def test_missing_equals_sign_raises(tmp_path: Path) -> None:
+    """Check that missing equals sign raises."""
     text = _VALID + "NOT_A_PAIR\n"
+    with pytest.raises(MazeError):
+        parse_config(_write(tmp_path, text))
+
+
+def test_duplicate_key_raises(tmp_path: Path) -> None:
+    """Check that a key given twice is rejected instead of silently kept."""
+    text = _VALID + "WIDTH=30\n"
+    with pytest.raises(MazeError):
+        parse_config(_write(tmp_path, text))
+
+
+def test_empty_key_raises(tmp_path: Path) -> None:
+    """Check that a line like ``=value`` is rejected."""
+    text = _VALID + "=5\n"
     with pytest.raises(MazeError):
         parse_config(_write(tmp_path, text))

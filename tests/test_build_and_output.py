@@ -19,6 +19,7 @@ _ENTRY, _EXIT = (0, 0), (19, 14)
 
 
 def _config(perfect: bool, output_file: str) -> Config:
+    """Return a fixed-seed 20x15 configuration writing to *output_file*."""
     return Config(
         width=_WIDTH, height=_HEIGHT, entry=_ENTRY, exit=_EXIT,
         output_file=output_file, perfect=perfect, seed=42, display="ascii",
@@ -26,11 +27,13 @@ def _config(perfect: bool, output_file: str) -> Config:
 
 
 def _analyze(path: Path) -> maze_analyzer.MazeReport:
+    """Parse *path* with the subject's analyzer and return its report."""
     maze = maze_analyzer.Maze.from_file(str(path))
     return maze_analyzer.analyze(maze)
 
 
 def test_perfect_maze_output_is_valid(tmp_path: Path) -> None:
+    """Check that perfect maze output is valid."""
     output = tmp_path / "maze.txt"
     config = _config(perfect=True, output_file=str(output))
     built = build_maze(config)
@@ -44,6 +47,7 @@ def test_perfect_maze_output_is_valid(tmp_path: Path) -> None:
 
 
 def test_playable_maze_output_is_valid(tmp_path: Path) -> None:
+    """Check that playable maze output is valid."""
     output = tmp_path / "maze.txt"
     config = _config(perfect=False, output_file=str(output))
     built = build_maze(config)
@@ -60,6 +64,7 @@ def test_playable_maze_output_is_valid(tmp_path: Path) -> None:
 
 
 def test_output_file_lines_end_with_newline(tmp_path: Path) -> None:
+    """Check that output file lines end with newline."""
     output = tmp_path / "maze.txt"
     config = _config(perfect=True, output_file=str(output))
     built = build_maze(config)

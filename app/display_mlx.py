@@ -1,8 +1,8 @@
 """MLX graphical renderer for a built maze, with the subject's menu.
 
-Requires the optional ``mlx`` package (vendored at ``vendor/`` -- see the
-README for install instructions). The import is deferred to this module so
-the ASCII display never requires it.
+Requires the optional ``mlx`` package (the subject's wheel, shipped in
+``vendor/`` -- see the README for install instructions). The import is
+deferred to this module so the ASCII display never requires it.
 """
 from __future__ import annotations
 
@@ -26,6 +26,8 @@ _PATTERN_COLOR = 0x808080
 
 # X11 keysym codes for the digit row (same values as ASCII on Linux MLX).
 _KEY_REGEN, _KEY_PATH, _KEY_COLOR, _KEY_QUIT, _KEY_ESC = 49, 50, 51, 52, 65307
+# X11 "ClientMessage" event: sent when the window's close button is clicked.
+_EVENT_CLOSE_WINDOW = 33
 
 
 def run(
@@ -55,6 +57,7 @@ def run(
     }
 
     def redraw() -> None:
+        """Clear the window and draw the current maze plus the key legend."""
         mlx.mlx_clear_window(mlx_ptr, win)
         _draw(
             mlx, mlx_ptr, win, state["built"], entry, exit_,
@@ -67,6 +70,7 @@ def run(
         )
 
     def on_key(keycode: int, _param: object) -> None:
+        """Apply the menu action bound to *keycode*, then redraw."""
         if keycode == _KEY_REGEN:
             state["built"] = regenerate()
         elif keycode == _KEY_PATH:
@@ -79,7 +83,12 @@ def run(
             return
         redraw()
 
+    def on_close(_param: object) -> None:
+        """Leave the event loop when the window's close button is used."""
+        mlx.mlx_loop_exit(mlx_ptr)
+
     mlx.mlx_key_hook(win, on_key, None)
+    mlx.mlx_hook(win, _EVENT_CLOSE_WINDOW, 0, on_close, None)
     redraw()
     mlx.mlx_loop(mlx_ptr)
     mlx.mlx_destroy_window(mlx_ptr, win)
@@ -96,6 +105,12 @@ def _draw(
     show_path: bool,
     wall_color: int,
 ) -> None:
+    """Draw every wall and cell marker of *built* in the window.
+
+    Each cell draws only its North and West walls (plus South on the last
+    row and East on the last column): thanks to wall coherence that covers
+    every wall exactly once.
+    """
     generator = built.generator
     pattern = set(built.pattern)
     visited = path_cells(entry, built.path) if show_path else set()
@@ -132,6 +147,7 @@ def _marker_color(
     pattern: Set[Coord],
     visited: Set[Coord],
 ) -> Optional[int]:
+    """Return the fill colour of one cell, or ``None`` to leave it empty."""
     if cell == entry:
         return _ENTRY_COLOR
     if cell == exit_:
@@ -146,6 +162,7 @@ def _marker_color(
 def _hline(
     mlx: Any, mlx_ptr: Any, win: Any, x: int, y: int, length: int, color: int,
 ) -> None:
+    """Draw a horizontal line of *length* pixels starting at ``(x, y)``."""
     for i in range(length):
         mlx.mlx_pixel_put(mlx_ptr, win, x + i, y, color)
 
@@ -153,6 +170,7 @@ def _hline(
 def _vline(
     mlx: Any, mlx_ptr: Any, win: Any, x: int, y: int, length: int, color: int,
 ) -> None:
+    """Draw a vertical line of *length* pixels starting at ``(x, y)``."""
     for j in range(length):
         mlx.mlx_pixel_put(mlx_ptr, win, x, y + j, color)
 
@@ -160,6 +178,7 @@ def _vline(
 def _fill(
     mlx: Any, mlx_ptr: Any, win: Any, x: int, y: int, size: int, color: int,
 ) -> None:
+    """Fill a *size* x *size* pixel square whose top-left is ``(x, y)``."""
     for j in range(size):
         for i in range(size):
             mlx.mlx_pixel_put(mlx_ptr, win, x + i, y + j, color)

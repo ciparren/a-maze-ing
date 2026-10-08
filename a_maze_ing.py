@@ -34,6 +34,7 @@ def _regenerate_factory(config: Config) -> Callable[[], BuiltMaze]:
     produces a genuinely different maze.
     """
     def regenerate() -> BuiltMaze:
+        """Build a maze with a fresh random seed and rewrite the output."""
         fresh = replace(config, seed=random.SystemRandom().randrange(2**32))
         built = build_maze(fresh)
         write_output(

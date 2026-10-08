@@ -47,18 +47,22 @@ artifacts).
 ### Optional: MLX display
 
 `DISPLAY=ascii` (the default) needs nothing extra. To open a graphical
-window instead, set `DISPLAY=mlx` and install the `mlx` package -- it isn't
-bundled in this repository, so fetch the wheel matching your platform (e.g.
-from the subject's own attachments) and place it under `vendor/`, then:
+window instead, set `DISPLAY=mlx`. The MiniLibX Python wheel provided with
+the subject (`mlx-2.2`, Ubuntu build) is shipped in `vendor/` and installed
+by `make install`, or manually:
 
 ```bash
 pip install vendor/mlx-2.2-py3-none-any.whl
 ```
 
-(`make install` attempts this automatically, best-effort, and simply skips
-it if the file isn't there.) If `mlx` isn't installed, `DISPLAY=mlx` fails
-with a clear error telling you to install it or switch back to
-`DISPLAY=ascii`.
+MLX runs on Linux only and needs the system libraries listed in its own
+documentation (vulkan, xcb, xcb-keysyms, bsd). On Fedora, replace the file in
+`vendor/` with the subject's Fedora build. If `mlx` can't be imported,
+`DISPLAY=mlx` fails with a clear error telling you to install it or switch
+back to `DISPLAY=ascii`.
+
+MLX controls: `1` re-generate, `2` show/hide path, `3` change wall colour,
+`4` / `Esc` / window close button to quit.
 
 ## Configuration file format
 
@@ -76,8 +80,10 @@ ignored.
 | `SEED`        | no       | integer seed for reproducible generation  | `SEED=42`            |
 | `DISPLAY`     | no       | `ascii` (default) or `mlx`                | `DISPLAY=ascii`      |
 
-Any missing/malformed key, out-of-bounds `ENTRY`/`EXIT`, or `ENTRY == EXIT`
-is reported as a clear error and the program exits without crashing.
+Keys are case-insensitive; unknown keys are ignored, but a key given twice is
+an error. Any missing/malformed/duplicated key, out-of-bounds
+`ENTRY`/`EXIT`, `ENTRY == EXIT`, or `ENTRY`/`EXIT` inside the "42" pattern is
+reported as a clear error and the program exits without crashing.
 
 ## Maze generation algorithm
 
@@ -106,13 +112,18 @@ of cells, and reject it if so. Because braiding only ever *adds* passages on
 top of an already fully-connected spanning tree, connectivity is preserved
 by construction -- no separate repair step is needed.
 
-The mandatory "42" pattern is a hand-authored pixel-font bitmap, centered in
-the grid and carved out (permanently closed) *before* generation, so the
-backtracker naturally routes around it. The exact centre cell of the grid is
-always kept open even though the bitmap covers it, since the playable mode
-requires the centre to be a corridor (the player's start position) --
-this leaves a one-cell notch in the "42" shape, which is a deliberate,
-documented trade-off.
+The mandatory "42" pattern is a hand-authored 11x7 pixel-font bitmap, placed
+in the middle of the grid and carved out (permanently closed, value `F`)
+*before* generation, so the backtracker naturally routes around it. It is
+positioned so that the grid's exact centre cell always falls on the blank
+column between the "4" and the "2": the centre stays an open corridor (the
+player's start position in playable mode) and both digits stay complete. It
+needs a 13x9 grid at least (pattern + 1-cell margin); smaller mazes are
+generated without it, after printing an error message on the console.
+
+Dead-end removal tracks the dead-end count incrementally (opening one wall
+only affects the two cells that share it), so braiding stays linear in the
+number of cells -- a 400x400 board braids in about a second.
 
 ## Code reusability
 
@@ -196,17 +207,25 @@ from what you first planned.
 
 ### What worked well / what could be improved
 
-<!-- TODO: fill in before submission -- concrete lessons, not generalities.
-     E.g. what made a task easy/hard, a design decision you'd revisit, a
-     bug that took longer than expected to track down. -->
-TODO -- e.g. splitting the reusable generator from the app-specific glue
-early made testing each half in isolation straightforward; the "42"
-pattern's centre-cell exception was a late discovery that could have been
-caught earlier by writing the Pac-Man key-cell check first.
+- **Worked well**: splitting the reusable `mazegen` core from the
+  project-specific `app/` glue early, so each half could be tested in
+  isolation; validating every change against the subject's own
+  `maze_analyzer.py` (wall coherence, perfect vs. playable verdict) on
+  hundreds of seeds and sizes, plus a `pytest` suite.
+- **Could be improved / lessons learned**:
+  - the first dead-end removal loop re-scanned the whole grid after every
+    opened wall, which made big mazes (100x100+) take seconds to minutes; it
+    now updates the count locally and stays linear;
+  - the "42" pattern first had a hole where it covered the grid's centre
+    cell (needed open for Pac-Man); placing the bitmap so the centre lands
+    on its blank middle column fixed it without special cases;
+  - we were checking against an older copy of `maze_analyzer.py`; always
+    re-download the tools attached to the current subject version.
 
 ### Tools used
 
-- Python 3, `flake8`, `mypy`, `pytest`, `build` (packaging), `venv`.
+- Python 3, `flake8`, `mypy`, `pytest`, `build` (packaging), `venv`,
+  MiniLibX (`mlx` 2.2 Python wheel from the subject).
 - An AI assistant (see disclosure above) for implementation and drafting.
 <!-- TODO: fill in before submission -- editor/IDE, git hosting, CI, chat
      tool for coordinating with your teammate, etc. -->

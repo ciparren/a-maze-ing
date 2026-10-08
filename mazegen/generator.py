@@ -75,6 +75,11 @@ class MazeGenerator:
         height: int,
         seed: Optional[int] = None,
     ) -> None:
+        """Create a grid where every cell starts with all four walls closed.
+
+        Raises:
+            MazeError: if ``width`` or ``height`` is lower than 1.
+        """
         if width < 1 or height < 1:
             raise MazeError("width and height must be strictly positive")
         self.width: int = width
@@ -151,6 +156,11 @@ class MazeGenerator:
         return self
 
     def _recursive_backtracker(self, start: Coord) -> None:
+        """Carve a spanning tree with an iterative depth-first search.
+
+        Args:
+            start: First cell of the walk; must be an unblocked cell.
+        """
         visited: Set[Coord] = {start}
         stack: List[Coord] = [start]
         while stack:
@@ -175,6 +185,7 @@ class MazeGenerator:
             stack.append(nxt)
 
     def _carve(self, x: int, y: int, direction: Direction) -> None:
+        """Open the wall on ``direction`` in both cells that share it."""
         bit, dx, dy, opp = _DIRS[direction]
         nx, ny = x + dx, y + dy
         self.grid[y][x] &= ~bit
@@ -230,10 +241,28 @@ class MazeGenerator:
                 f"widening a corridor beyond 2 cells; try a larger maze"
             )
 
+        # Opening one wall only changes the two cells that share it, so the
+        # real dead-end count is updated locally instead of re-scanning the
+        # whole grid after every opening (that made this loop quadratic).
+        remaining = self.dead_ends()[0]
         for x, y in self._dead_end_cells():
-            if self.dead_ends()[0] <= max_dead_ends:
+            if remaining <= max_dead_ends:
                 break
-            self._pick_safe_wall(x, y)
+            if not self._is_real_dead_end(x, y):
+                continue  # already fixed when one of its neighbours opened
+            neighbours_before = {
+                (x + dx, y + dy): self._is_real_dead_end(x + dx, y + dy)
+                for _bit, dx, dy, _opp in _DIRS.values()
+                if self.in_bounds(x + dx, y + dy)
+            }
+            direction = self._pick_safe_wall(x, y)
+            if direction is None:
+                continue
+            _bit, dx, dy, _opp = _DIRS[direction]
+            other = (x + dx, y + dy)
+            remaining -= 1  # (x, y) now has two openings
+            if neighbours_before[other] and not self._is_real_dead_end(*other):
+                remaining -= 1
 
         return loops_added
 
@@ -253,6 +282,12 @@ class MazeGenerator:
         return None
 
     def _closed_wall_candidates(self) -> List[Tuple[int, int, Direction]]:
+        """List every closed wall between two unblocked, in-bounds cells.
+
+        Returns:
+            ``(x, y, direction)`` triples (each wall may appear twice, once
+            from each side).
+        """
         result: List[Tuple[int, int, Direction]] = []
         for x, y in self.unblocked_cells():
             for direction, (bit, dx, dy, _opp) in _DIRS.items():
@@ -276,6 +311,12 @@ class MazeGenerator:
         return True
 
     def _creates_wide_area(self, ax: int, ay: int, bx: int, by: int) -> bool:
+        """Return ``True`` if a 3x3 window holding both cells is fully open.
+
+        Only the windows that contain the two cells ``(ax, ay)`` and
+        ``(bx, by)`` (the ones whose shared wall was just opened) can have
+        changed, so only those are checked.
+        """
         lo_x, lo_y = min(ax, bx), min(ay, by)
         for wy in range(lo_y - 2, lo_y + 1):
             if not (0 <= wy <= self.height - 3):
@@ -292,6 +333,12 @@ class MazeGenerator:
         return False
 
     def _window_fully_open(self, wx: int, wy: int) -> bool:
+        """Return ``True`` if the 3x3 window at ``(wx, wy)`` has no wall.
+
+        Checks the 12 internal walls of the window (East walls of the two
+        left columns, South walls of the two top rows); a blocked cell
+        inside the window also counts as closed.
+        """
         for j in range(3):
             for i in range(3):
                 x, y = wx + i, wy + j
@@ -326,6 +373,7 @@ class MazeGenerator:
         return len(seen) == len(cells)
 
     def _dead_end_cells(self) -> List[Coord]:
+        """Return every unblocked cell with exactly one opening, shuffled."""
         cells = [
             (x, y)
             for x, y in self.unblocked_cells()
@@ -334,7 +382,19 @@ class MazeGenerator:
         self._rng.shuffle(cells)
         return cells
 
+    def _is_real_dead_end(self, x: int, y: int) -> bool:
+        """Return ``True`` if ``(x, y)`` is a dead-end that could be opened.
+
+        Same definition as the ``real`` count of :meth:`dead_ends`.
+        """
+        if (x, y) in self.blocked:
+            return False
+        if sum(1 for _ in self.passages(x, y)) != 1:
+            return False
+        return self._has_openable_wall(x, y)
+
     def _has_openable_wall(self, x: int, y: int) -> bool:
+        """Return ``True`` if a closed wall of ``(x, y)`` faces a free cell."""
         for direction, (bit, dx, dy, _opp) in _DIRS.items():
             if not (self.grid[y][x] & bit):
                 continue

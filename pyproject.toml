@@ -27,11 +27,8 @@ Repository = "https://github.com/ciparren/a-maze-ing"
 include = ["mazegen*"]
 
 [tool.mypy]
-# maze_analyzer.py is the subject's own grading tool, kept for local
-# self-checking -- not our code, so it's excluded from the lint gate.
-# .venv/vendor/build/dist are third-party or generated, not our sources.
+# Third-party or generated directories, not our sources.
 exclude = [
-    "^maze_analyzer\\.py$",
     "^\\.venv/",
     "^vendor/",
     "^build/",

@@ -37,7 +37,7 @@ from collections import deque
 from dataclasses import dataclass
 from enum import IntFlag
 from functools import cached_property
-from typing import Dict, FrozenSet, Iterator, List, Optional, Tuple
+from typing import Dict, FrozenSet, Iterator, List, Optional, Set, Tuple
 
 Cell = Tuple[int, int]                 # an immutable (row, col) position
 
@@ -203,7 +203,7 @@ class Maze:
 
     def largest_region(self) -> FrozenSet[Cell]:
         """Largest connected component, found in a single linear sweep."""
-        seen: set = set()
+        seen: Set[Cell] = set()
         best: FrozenSet[Cell] = frozenset()
         for cell in self:
             if cell in seen:
@@ -327,13 +327,26 @@ class MazeReport:
 
     @cached_property
     def unreachable_key_cells(self) -> Tuple[Cell, ...]:
-        """Pac-Man needs the four corners and the centre as corridors."""
+        """Pac-Man needs the four corners and the centre as corridors.
+
+        With an odd row/column count the centre is a single cell; with an
+        even one there is no cell dead in the middle, so any of the (up to
+        four) cells surrounding the middle is accepted as the start.
+        """
         rows, cols = self.maze.rows, self.maze.cols
-        key = {
-            (0, 0), (0, cols - 1), (rows - 1, 0), (rows - 1, cols - 1),
-            (rows // 2, cols // 2),
-        }
-        return tuple(sorted(cell for cell in key if cell not in self.region))
+        corners = {(0, 0), (0, cols - 1), (rows - 1, 0), (rows - 1, cols - 1)}
+        missing = {cell for cell in corners if cell not in self.region}
+        centre_candidates = self._centre_candidates()
+        if not any(cell in self.region for cell in centre_candidates):
+            missing |= centre_candidates
+        return tuple(sorted(missing))
+
+    def _centre_candidates(self) -> FrozenSet[Cell]:
+        """The cell(s) around the middle, accounting for even dimensions."""
+        rows, cols = self.maze.rows, self.maze.cols
+        row_mid = {rows // 2} if rows % 2 else {rows // 2 - 1, rows // 2}
+        col_mid = {cols // 2} if cols % 2 else {cols // 2 - 1, cols // 2}
+        return frozenset((r, c) for r in row_mid for c in col_mid)
 
 
 def analyze(maze: Maze) -> MazeReport:
@@ -451,10 +464,10 @@ def _xy(cell: Cell) -> str:
 def _exit(report: MazeReport) -> str:
     if report.maze.exit is None:
         return "?"
-    reachable = report.exit_reachable
-    state = "" if reachable is None else (
-        " (reachable)" if reachable else " (UNREACHABLE)"
-    )
+    states: Dict[Optional[bool], str] = {
+        True: " (reachable)", False: " (UNREACHABLE)",
+    }
+    state = states.get(report.exit_reachable, "")
     return f"{_xy(report.maze.exit)}{state}"
 
 

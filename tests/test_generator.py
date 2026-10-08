@@ -1,6 +1,8 @@
 """Tests for the reusable :mod:`mazegen` package."""
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from mazegen import MazeError, MazeGenerator
@@ -18,6 +20,7 @@ def _open_edges(gen: MazeGenerator) -> int:
 
 
 def _window_fully_open(gen: MazeGenerator, wx: int, wy: int) -> bool:
+    """Return ``True`` if the 3x3 window at ``(wx, wy)`` has no wall."""
     for j in range(3):
         for i in range(3):
             x, y = wx + i, wy + j
@@ -31,6 +34,7 @@ def _window_fully_open(gen: MazeGenerator, wx: int, wy: int) -> bool:
 
 
 def _has_3x3_open_block(gen: MazeGenerator) -> bool:
+    """Return ``True`` if the maze contains any fully open 3x3 area."""
     return any(
         _window_fully_open(gen, wx, wy)
         for wy in range(gen.height - 2)
@@ -39,6 +43,7 @@ def _has_3x3_open_block(gen: MazeGenerator) -> bool:
 
 
 def test_invalid_dimensions_raise() -> None:
+    """Check that invalid dimensions raise."""
     with pytest.raises(MazeError):
         MazeGenerator(0, 5)
     with pytest.raises(MazeError):
@@ -46,6 +51,7 @@ def test_invalid_dimensions_raise() -> None:
 
 
 def test_generate_produces_a_perfect_spanning_tree() -> None:
+    """Check that generate produces a perfect spanning tree."""
     gen = MazeGenerator(8, 6, seed=1)
     gen.generate()
     assert gen.is_fully_connected()
@@ -54,6 +60,7 @@ def test_generate_produces_a_perfect_spanning_tree() -> None:
 
 
 def test_generate_is_reproducible_with_same_seed() -> None:
+    """Check that generate is reproducible with same seed."""
     first = MazeGenerator(10, 8, seed=42)
     first.generate()
     second = MazeGenerator(10, 8, seed=42)
@@ -62,6 +69,7 @@ def test_generate_is_reproducible_with_same_seed() -> None:
 
 
 def test_generate_with_blocked_cells_routes_around_them() -> None:
+    """Check that generate with blocked cells routes around them."""
     gen = MazeGenerator(10, 8, seed=3)
     obstacles = [(4, 3), (4, 4), (5, 3), (5, 4)]
     gen.block_cells(obstacles)
@@ -74,6 +82,7 @@ def test_generate_with_blocked_cells_routes_around_them() -> None:
 
 
 def test_block_cells_after_generate_raises() -> None:
+    """Check that block cells after generate raises."""
     gen = MazeGenerator(5, 5, seed=1)
     gen.generate()
     with pytest.raises(MazeError):
@@ -81,12 +90,14 @@ def test_block_cells_after_generate_raises() -> None:
 
 
 def test_block_cells_out_of_bounds_raises() -> None:
+    """Check that block cells out of bounds raises."""
     gen = MazeGenerator(5, 5, seed=1)
     with pytest.raises(MazeError):
         gen.block_cells([(5, 5)])
 
 
 def test_solve_returns_a_valid_path() -> None:
+    """Check that solve returns a valid path."""
     gen = MazeGenerator(10, 8, seed=7)
     gen.generate()
     path = gen.solve((0, 0), (9, 7))
@@ -100,6 +111,7 @@ def test_solve_returns_a_valid_path() -> None:
 
 
 def test_solve_rejects_bad_arguments() -> None:
+    """Check that solve rejects bad arguments."""
     gen = MazeGenerator(5, 5, seed=1)
     gen.generate()
     with pytest.raises(MazeError):
@@ -109,6 +121,7 @@ def test_solve_rejects_bad_arguments() -> None:
 
 
 def test_braid_adds_loops_and_keeps_corridors_narrow() -> None:
+    """Check that braid adds loops and keeps corridors narrow."""
     gen = MazeGenerator(12, 10, seed=5)
     gen.generate()
     loops_added = gen.braid(min_loops=3, max_dead_ends=2)
@@ -120,6 +133,18 @@ def test_braid_adds_loops_and_keeps_corridors_narrow() -> None:
 
 
 def test_braid_requires_generate_first() -> None:
+    """Check that braid requires generate first."""
     gen = MazeGenerator(5, 5, seed=1)
     with pytest.raises(MazeError):
         gen.braid(min_loops=1)
+
+
+def test_braid_scales_to_large_mazes() -> None:
+    """Check that braiding a 150x150 maze stays fast (it used to be O(n^2))."""
+    gen = MazeGenerator(150, 150, seed=1)
+    gen.generate()
+    start = time.monotonic()
+    gen.braid(min_loops=3, max_dead_ends=2)
+    assert time.monotonic() - start < 10
+    assert gen.dead_ends()[0] <= 2
+    assert gen.is_fully_connected()

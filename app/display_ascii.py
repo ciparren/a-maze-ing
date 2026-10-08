@@ -69,6 +69,10 @@ def _floor_char(
     pattern: Set[Coord],
     path_cells: Set[Coord],
 ) -> str:
+    """Return the (coloured) character drawn inside one cell.
+
+    Priority: entry ``S``, exit ``X``, "42" cell ``#``, path ``o``, floor.
+    """
     if cell == entry:
         return _ENTRY_COLOR + "S" + _RESET
     if cell == exit_:
@@ -87,6 +91,12 @@ def _render(
     show_path: bool,
     wall_color: str,
 ) -> None:
+    """Clear the terminal and draw the maze.
+
+    The maze is drawn on a ``(2*height+1) x (2*width+1)`` character buffer:
+    cell ``(x, y)`` sits at ``[2y+1][2x+1]``, its walls on the four
+    neighbouring positions and ``+`` on every even/even position.
+    """
     generator = built.generator
     pattern = set(built.pattern)
     path_cells = _path_cells(entry, built.path) if show_path else set()
